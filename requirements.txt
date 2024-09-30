@@ -1,0 +1,4 @@
+kivy==2.2.1
+kivy-garden.mapview==1.0.0
+requests==2.31.0
+smtplib    # For sending emails (SOS feature)
