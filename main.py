@@ -1,63 +1,58 @@
+import numpy as np
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
-from kivy.uix.popup import Popup
-from kivy.clock import Clock
-from kivy_garden.mapview import MapView, MapMarker
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
 
-from modules.location import share_location
-from modules.sos import send_sos_alert
-from modules.safe_route import get_safe_route
-
-class NightSafeApp(App):
+class NutrientScannerApp(App):
     def build(self):
-        self.layout = BoxLayout(orientation='vertical')
-        
-        # Title
-        self.layout.add_widget(Label(text="NightSafe - Stay Safe at Night", font_size=24))
-        
-        # Real-Time Location Sharing Button
-        location_button = Button(text="Share Location", size_hint=(1, 0.2))
-        location_button.bind(on_press=self.share_location)
-        self.layout.add_widget(location_button)
-        
-        # Emergency SOS Button
-        sos_button = Button(text="Emergency SOS", size_hint=(1, 0.2), background_color=(1, 0, 0, 1))
-        sos_button.bind(on_press=self.send_sos)
-        self.layout.add_widget(sos_button)
-        
-        # Safe Route Navigation Button
-        route_button = Button(text="Find Safe Route", size_hint=(1, 0.2))
-        route_button.bind(on_press=self.show_safe_route)
-        self.layout.add_widget(route_button)
+        # Load your pre-trained model
+        self.model = load_model('plant_nutrient_deficiency_detector.h5')  # Replace with your model's filename
 
-        # Placeholder Map View
-        self.mapview = MapView(zoom=11, lat=20.5937, lon=78.9629)  # Center on India for now
-        self.layout.add_widget(self.mapview)
+        layout = BoxLayout(orientation='vertical')
 
-        return self.layout
-    
-    def share_location(self, instance):
-        # Call location sharing module
-        location = share_location()
-        if location:
-            self.mapview.center_on(location[0], location[1])
-            marker = MapMarker(lat=location[0], lon=location[1])
-            self.mapview.add_marker(marker)
-    
-    def send_sos(self, instance):
-        # Call SOS alert module
-        send_sos_alert()
-        popup = Popup(title='SOS Sent', content=Label(text='Emergency alert sent!'), size_hint=(0.8, 0.3))
-        popup.open()
-    
-    def show_safe_route(self, instance):
-        # Call safe route module
-        safe_route = get_safe_route()
-        # Display the safe route (for now, just print or mock it)
-        popup = Popup(title='Safe Route', content=Label(text=safe_route), size_hint=(0.8, 0.3))
-        popup.open()
+        # Prediction result
+        self.result_label = Label(text="Click the button to load an image", size_hint=(1, 0.2))
+        layout.add_widget(self.result_label)
+
+        # Load Image button
+        load_button = Button(text="Load and Predict Image", size_hint=(1, 0.1))
+        load_button.bind(on_press=self.load_and_predict_image)
+        layout.add_widget(load_button)
+
+        return layout
+
+    def load_and_predict_image(self, instance):
+        # Specify the path to the image file (you can modify this to your specific image)
+        image_path = 'image-asset.jpg'  # Replace with the actual path to the image
+
+        # Update the label to indicate the image is being processed
+        self.result_label.text = "Processing image..."
+
+        # Run prediction on the image
+        self.predict_deficiency(image_path)
+
+    def predict_deficiency(self, image_path):
+        # Load the image and preprocess it
+        img = image.load_img(image_path, target_size=(224, 224))  # Ensure size matches model input
+        img_array = image.img_to_array(img) / 255.0  # Normalize
+        img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+
+        # Make prediction using the pre-trained model
+        predictions = self.model.predict(img_array)
+
+        # Map prediction to nutrient deficiency label
+        deficiencies = ['Iron Deficiency', 'Iodine Deficiency', 'Vitamin D Deficiency', 
+                        'Vitamin B12 Deficiency', 'Calcium Deficiency', 'Vitamin A Deficiency', 
+                        'Magnesium Deficiency']
+        
+        predicted_index = np.argmax(predictions)
+        predicted_deficiency = deficiencies[predicted_index]
+
+        # Update the result label with the prediction
+        self.result_label.text = f"Prediction: {predicted_deficiency}"
 
 if __name__ == "__main__":
-    NightSafeApp().run()
+    NutrientScannerApp().run()
